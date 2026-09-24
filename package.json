@@ -4,6 +4,8 @@
   "description": "A mini streaming platform for uploading, managing, and watching videos.",
   "main": "index.js",
   "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
