@@ -1,57 +1,42 @@
-const Video = require("../models/Video");
-const upload = require("../middleware/uploadMiddleware")
+const videoService = require('../services/videoService');
 
-exports.uploadVideo = async (req, res) => {
-  upload.single("video")(req, res, async (err) => {
-    // Check upload error
-    if (err) {
-      return res.status(400).json({
-        message: "Error uploading video",
-        error: err.message,
-      });
-    }
-
-
+exports.uploadVideo = async (req, res, next) => {
   try {
-    const {
-      title,
-      description,
-      videoUrl,
-      publicId,
-      thumbnailUrl,
-      duration,
-      uploadedBy,
-    } = req.body;
-
-    if (
-      !title ||
-      !description ||
-      !videoUrl ||
-      !publicId ||
-      !thumbnailUrl ||
-      !duration ||
-      !uploadedBy
-    ) {
-      return res.status(400).json({
-        message: "Please provide all required fields",
-      });
-    }
-
-    const video = new Video({
-      title,
-      description,
-      videoUrl,
-      publicId,
-      thumbnailUrl,
-      duration,
-      uploadedBy,
+    const video = await videoService.uploadVideo({
+      body: req.body,
+      files: req.files,
+      userId: req.user.id,
     });
 
-    await video.save();
-    res.status(201).json({ message: "video uploaded successfully", video });
+    return res.status(201).json({
+      message: 'Video uploaded successfully',
+      video,
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error uploading video", error: error.message });
+    return next(error);
+  }
+};
+
+exports.getAllVideos = async (req, res, next) => {
+  try {
+    const videos = await videoService.getAllVideos();
+    return res.status(200).json({
+      message: 'Videos retrieved successfully',
+      videos,
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.getVideoById = async (req, res, next) => {
+  try {
+    const video = await videoService.getVideoById(req.params.id);
+    return res.status(200).json({
+      message: 'Video retrieved successfully',
+      video,
+    });
+  } catch (error) {
+    return next(error);
   }
 };

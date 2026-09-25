@@ -20,11 +20,11 @@ const videoSchema = new mongoose.Schema(
     },
     thumbnailUrl: {
       type: String,
-      required: true,
+      default: "",
     },
     duration: {
       type: Number,
-      required: true,
+      default: 0,
     },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
