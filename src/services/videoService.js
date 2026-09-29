@@ -28,6 +28,12 @@ const uploadBuffer = (file, resourceType, folder) => new Promise((resolve, rejec
 });
 
 const uploadVideo = async ({ body, files, userId }) => {
+	if (mongoose.connection.readyState !== 1) {
+		const error = new Error('Database is unavailable');
+		error.statusCode = 503;
+		throw error;
+	}
+
 	const videoFile = files?.video?.[0];
 	if (!videoFile) {
 		const error = new Error('A video file is required');
@@ -40,6 +46,22 @@ const uploadVideo = async ({ body, files, userId }) => {
 		error.statusCode = 400;
 		throw error;
 	}
+	if (!body.description?.trim()) {
+		const error = new Error('Description is required');
+		error.statusCode = 400;
+		throw error;
+	}
+	const duration = body.duration === undefined || body.duration === '' ? 0 : Number(body.duration);
+	if (!Number.isFinite(duration) || duration < 0) {
+		const error = new Error('A valid non-negative duration is required');
+		error.statusCode = 400;
+		throw error;
+	}
+	if (!userId || !mongoose.isValidObjectId(userId)) {
+		const error = new Error('Authenticated user is invalid');
+		error.statusCode = 401;
+		throw error;
+	}
 
 	const videoAsset = await uploadBuffer(videoFile, 'video', 'reelio/videos');
 	let thumbnailAsset;
@@ -49,15 +71,16 @@ const uploadVideo = async ({ body, files, userId }) => {
 			thumbnailAsset = await uploadBuffer(files.thumbnail[0], 'image', 'reelio/thumbnails');
 		}
 
-		return Video.create({
+		const video = await Video.create({
 			title: body.title.trim(),
-			description: body.description?.trim() || '',
+			description: body.description.trim(),
 			videoUrl: videoAsset.secure_url,
 			publicId: videoAsset.public_id,
 			thumbnailUrl: thumbnailAsset?.secure_url || '',
-			duration: Number(body.duration) || 0,
+			duration,
 			uploadedBy: userId,
 		});
+		return video;
 	} catch (error) {
 		await cloudinary.uploader.destroy(videoAsset.public_id, { resource_type: 'video' }).catch(() => null);
 		if (thumbnailAsset) {

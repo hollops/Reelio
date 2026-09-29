@@ -5,12 +5,13 @@ exports.uploadVideo = async (req, res, next) => {
     const video = await videoService.uploadVideo({
       body: req.body,
       files: req.files,
-      userId: req.user.id,
+      userId: req.user._id || req.user.id,
     });
 
     return res.status(201).json({
+		success: true,
       message: 'Video uploaded successfully',
-      video,
+		data: { video },
     });
   } catch (error) {
     return next(error);
