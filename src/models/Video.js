@@ -18,6 +18,10 @@ const videoSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    thumbnailPublicId: {
+      type: String,
+      default: '',
+    },
     thumbnailUrl: {
       type: String,
       default: "",

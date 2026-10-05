@@ -19,6 +19,14 @@ const userSchema = new mongoose.Schema({
     enum: ["user", "admin"], // Define the allowed roles
     default: "user",
   },
+  passwordResetToken: {
+    type: String,
+    select: false,
+  },
+  passwordResetExpires: {
+    type: Date,
+    select: false,
+  },
 }, {timestamps:true});
 const User = mongoose.model('User', userSchema);
 

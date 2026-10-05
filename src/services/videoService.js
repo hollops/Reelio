@@ -77,6 +77,7 @@ const uploadVideo = async ({ body, files, userId }) => {
 			videoUrl: videoAsset.secure_url,
 			publicId: videoAsset.public_id,
 			thumbnailUrl: thumbnailAsset?.secure_url || '',
+			thumbnailPublicId: thumbnailAsset?.public_id || '',
 			duration,
 			uploadedBy: userId,
 		});
@@ -92,6 +93,11 @@ const uploadVideo = async ({ body, files, userId }) => {
 
 const getAllVideos = async () => Video.find()
 	.populate('uploadedBy', 'name email role')
+	.sort({ createdAt: -1 });
+
+const browseVideos = async () => Video.find()
+	.select('title description thumbnailUrl duration uploadedBy createdAt')
+	.populate('uploadedBy', 'name')
 	.sort({ createdAt: -1 });
 
 const getVideoById = async (videoId) => {
@@ -112,4 +118,97 @@ const getVideoById = async (videoId) => {
 	return video;
 };
 
-module.exports = { uploadVideo, getAllVideos, getVideoById };
+const getMyVideos = async (userId) => {
+	if (!userId || !mongoose.isValidObjectId(userId)) {
+		const error = new Error('Authenticated user is invalid');
+		error.statusCode = 401;
+		throw error;
+	}
+
+	return Video.find({ uploadedBy: userId })
+		.populate('uploadedBy', 'name email role')
+		.sort({ createdAt: -1 });
+};
+
+const findManageableVideo = async (videoId, actor) => {
+	if (!mongoose.isValidObjectId(videoId)) {
+		const error = new Error('Invalid video ID');
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const video = await Video.findById(videoId);
+	if (!video) {
+		const error = new Error('Video not found');
+		error.statusCode = 404;
+		throw error;
+	}
+
+	if (actor?.role !== 'admin' && String(video.uploadedBy) !== String(actor?.id)) {
+		const error = new Error('You can only manage videos you uploaded');
+		error.statusCode = 403;
+		throw error;
+	}
+
+	return video;
+};
+
+const updateVideo = async (videoId, updates, actor) => {
+	const video = await findManageableVideo(videoId, actor);
+	updates = updates || {};
+	let hasUpdates = false;
+
+	for (const field of ['title', 'description']) {
+		if (Object.prototype.hasOwnProperty.call(updates, field)) {
+			if (typeof updates[field] !== 'string' || !updates[field].trim()) {
+				const error = new Error(`${field} is required`);
+				error.statusCode = 400;
+				throw error;
+			}
+			video[field] = updates[field].trim();
+			hasUpdates = true;
+		}
+	}
+
+	if (Object.prototype.hasOwnProperty.call(updates, 'duration')) {
+		const duration = Number(updates.duration);
+		if (!Number.isFinite(duration) || duration < 0) {
+			const error = new Error('A valid non-negative duration is required');
+			error.statusCode = 400;
+			throw error;
+		}
+		video.duration = duration;
+		hasUpdates = true;
+	}
+
+	if (!hasUpdates) {
+		const error = new Error('Provide a title, description, or duration to update');
+		error.statusCode = 400;
+		throw error;
+	}
+
+	return video.save();
+};
+
+const deleteVideo = async (videoId, actor) => {
+	const video = await findManageableVideo(videoId, actor);
+	await video.deleteOne();
+
+	const cleanup = [
+		cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' }),
+	];
+	if (video.thumbnailPublicId) {
+		cleanup.push(cloudinary.uploader.destroy(video.thumbnailPublicId, { resource_type: 'image' }));
+	}
+
+	const results = await Promise.allSettled(cleanup);
+	for (const result of results) {
+		if (result.status === 'rejected') {
+			console.error('Cloudinary cleanup failed after deleting video:', result.reason.message);
+		}
+	}
+
+	return video;
+};
+
+module.exports = { uploadVideo, getAllVideos, browseVideos, getVideoById, getMyVideos, updateVideo, deleteVideo };

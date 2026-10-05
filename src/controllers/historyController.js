@@ -3,7 +3,7 @@ const historyService = require('../services/historyService');
 const saveProgress = async (req, res, next) => {
   try {
     const { videoId, progress, duration } = req.body;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     const history = await historyService.saveProgress(
       userId,
@@ -24,7 +24,7 @@ const saveProgress = async (req, res, next) => {
 
 const getUserHistory = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     const history = await historyService.getUserHistory(userId);
 
@@ -40,7 +40,7 @@ const getUserHistory = async (req, res, next) => {
 
 const getVideoHistory = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { videoId } = req.params;
 
     const history = await historyService.getVideoHistory(
@@ -60,7 +60,7 @@ const getVideoHistory = async (req, res, next) => {
 
 const deleteVideoHistory = async (req, res, next) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
     const { videoId } = req.params;
 
     await historyService.deleteVideoHistory(userId, videoId);
