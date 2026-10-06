@@ -14,6 +14,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  avatarUrl: {
+    type: String,
+    default: '',
+  },
+  avatarPublicId: {
+    type: String,
+    default: '',
+  },
   role: {
     type: String,
     enum: ["user", "admin"], // Define the allowed roles
