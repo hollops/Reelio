@@ -42,7 +42,10 @@ const openApi = {
 		version: '1.0.0',
 		description: 'API for user accounts, video browsing and uploads, watch history, and Watch Later.',
 	},
-	servers: [{ url: '/api', description: 'This Reelio backend' }],
+	servers: [
+		{ url: '/api', description: 'This Reelio backend (current host)' },
+		{ url: 'https://viora-94kb.onrender.com/api', description: 'Reelio on Render' },
+	],
 	tags: [
 		{ name: 'Auth' },
 		{ name: 'Videos' },
