@@ -79,6 +79,7 @@ const uploadVideo = async ({ body, files, userId }) => {
 			thumbnailUrl: thumbnailAsset?.secure_url || '',
 			thumbnailPublicId: thumbnailAsset?.public_id || '',
 			duration,
+			...(body.category ? { category: body.category } : {}),
 			uploadedBy: userId,
 		});
 		return video;
@@ -107,8 +108,13 @@ const getVideoById = async (videoId) => {
 		throw error;
 	}
 
-	const video = await Video.findById(videoId)
-		.populate('uploadedBy', 'name email role');
+	// $inc is atomic in the database, so two people opening the same video at the same
+	// moment both count. Reading the number, adding one and saving it would lose one of them.
+	const video = await Video.findByIdAndUpdate(
+		videoId,
+		{ $inc: { views: 1 } },
+		{ new: true },
+	).populate('uploadedBy', 'name email role');
 	if (!video) {
 		const error = new Error('Video not found');
 		error.statusCode = 404;
@@ -157,6 +163,11 @@ const updateVideo = async (videoId, updates, actor) => {
 	const video = await findManageableVideo(videoId, actor);
 	updates = updates || {};
 	let hasUpdates = false;
+
+	if (Object.prototype.hasOwnProperty.call(updates, 'category')) {
+		video.category = updates.category;
+		hasUpdates = true;
+	}
 
 	for (const field of ['title', 'description']) {
 		if (Object.prototype.hasOwnProperty.call(updates, field)) {

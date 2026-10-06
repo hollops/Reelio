@@ -10,6 +10,8 @@ router.get('/', videoController.browseVideos);
 router.get('/mine', protect, videoController.getMyVideos);
 router.patch('/:id', protect, videoController.updateVideo);
 router.delete('/:id', protect, videoController.deleteVideo);
-router.get('/:id', protect, videoController.getVideoById);
+// Public, like GET / above: browsing and watching are open to everyone. Only the
+// routes that change something, or that read one person's own data, need a token.
+router.get('/:id', videoController.getVideoById);
 
 module.exports = router;

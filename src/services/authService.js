@@ -4,6 +4,24 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('./emailService');
 
+// The token carries who the user is, so anything holding a valid token already knows
+// enough to render a page. Signed in ONE place so login, register and any future route
+// can never disagree about what a token contains.
+const signToken = (user) =>
+	jwt.sign(
+		{ id: user._id, email: user.email, name: user.name, role: user.role },
+		process.env.JWT_SECRET,
+		{ expiresIn: '1h' },
+	);
+
+const toSafeUser = (user) => {
+	const safe = user.toObject ? user.toObject() : { ...user };
+	delete safe.password;
+	delete safe.passwordResetToken;
+	delete safe.passwordResetExpires;
+	return safe;
+};
+
 const validatePassword = (password) => {
 	if (
 		typeof password !== 'string' ||
@@ -42,9 +60,7 @@ const createUser = async ({ name, email, password }) => {
 
 	await user.save();
 
-	const safeUser = user.toObject();
-	delete safeUser.password;
-	return safeUser;
+	return { token: signToken(user), user: toSafeUser(user) };
 };
 
 const loginUser = async ({ email, password }) => {
@@ -68,13 +84,20 @@ const loginUser = async ({ email, password }) => {
 		throw error;
 	}
 
-	const token = jwt.sign(
-		{ id: user._id, email: user.email, name: user.name, role: user.role },
-		process.env.JWT_SECRET,
-		{ expiresIn: '1h' },
-	);
+	return { token: signToken(user), user: toSafeUser(user) };
+};
 
-	return { token };
+// Who does this token belong to? Read FRESH from the database rather than trusting the
+// token's own copy: a name or role changed since the token was issued must win, and a
+// deleted user must stop being accepted.
+const getMe = async (userId) => {
+	const user = await User.findById(userId).select('-password');
+	if (!user) {
+		const error = new Error('User not found');
+		error.statusCode = 404;
+		throw error;
+	}
+	return toSafeUser(user);
 };
 
 const requestPasswordReset = async (email) => {
@@ -145,4 +168,4 @@ const resetPassword = async ({ token, password }) => {
 	}
 };
 
-module.exports = { createUser, loginUser, requestPasswordReset, resetPassword };
+module.exports = { createUser, loginUser, getMe, requestPasswordReset, resetPassword };
