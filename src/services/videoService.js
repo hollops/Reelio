@@ -1,4 +1,6 @@
 const Video = require('../models/Video');
+const Comment = require('../models/Comment');
+const Like = require('../models/Like');
 const cloudinary = require('../config/cloudinary');
 const mongoose = require('mongoose');
 
@@ -204,6 +206,14 @@ const updateVideo = async (videoId, updates, actor) => {
 const deleteVideo = async (videoId, actor) => {
 	const video = await findManageableVideo(videoId, actor);
 	await video.deleteOne();
+
+	// Comments and likes point at a video that no longer exists. Left behind they are
+	// invisible rows that still count: a deleted video's likes would keep inflating any
+	// future total, and its comments would resurface if an id were ever reused.
+	await Promise.all([
+		Comment.deleteMany({ video: videoId }),
+		Like.deleteMany({ video: videoId }),
+	]).catch((error) => console.error('Failed to clean up comments/likes:', error.message));
 
 	const cleanup = [
 		cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' }),
