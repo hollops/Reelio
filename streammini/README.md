@@ -24,6 +24,40 @@ Demo accounts (mock API only): `admin@streammini.dev` / `admin123` (admin) and
 `ada@streammini.dev` / `password1` (regular user). Every channel account (for example
 `beats@streammini.dev`) also uses `password1`.
 
+## Testing
+
+Two kinds of test, deliberately, because they answer different questions.
+
+```bash
+npm test            # unit tests, once
+npm run test:watch  # unit tests, re-running as you edit
+npm run test:coverage
+```
+
+**Unit tests — Vitest + React Testing Library (`src/**/*.test.tsx`)**
+
+Run in **jsdom**: a fake DOM inside Node, with no real browser. Fast (a few seconds) and
+precise, so they suit logic with many branches.
+
+| Covered | File |
+| --- | --- |
+| Auth validation rules | `src/features/auth/validation.test.ts` |
+| Sign-in form behaviour | `src/pages/LoginPage.test.tsx` |
+| Player play/pause | `src/features/player/VideoPlayer.test.tsx` |
+
+jsdom has **no layout engine and no media playback**, so `src/test/setup.ts` stands in for
+`play()` / `pause()` and keeps `paused` honest. Anything visual, or anything depending on
+real video, cannot be tested here — and should not be faked into passing.
+
+**End-to-end tests — Playwright**
+
+Drive a real browser against the running app. They cover what jsdom cannot: layout and
+responsive behaviour, colour contrast, keyboard focus order, accessibility audits (axe),
+and the player actually playing. Each run starts its own dev server on port 5199.
+
+> **Rule of thumb:** if a bug could be found by reading the logic, a unit test is cheaper.
+> If it could only be found by looking at the screen, it needs the browser.
+
 ## Design system
 
 All colours and text sizes are **design tokens** defined once in `src/index.css` (`@theme`).
@@ -40,14 +74,17 @@ Dark theme with a single violet accent. Every text/background pair meets **WCAG 
 | `canvas`       | `#0b0b10` | Page background                               | —                  |
 | `surface`      | `#15151d` | Cards, panels, inputs                         | —                  |
 | `elevated`     | `#1f1f2a` | Menus, modals, hover states                   | —                  |
-| `line`         | `#2c2c3a` | Borders and dividers                          | —                  |
+| `line`         | `#2c2c3a` | Decorative borders and dividers               | —                  |
+| `line-strong`  | `#6a6a80` | Control borders (inputs, checkboxes)          | 3.1:1 on surface   |
 | `fg`           | `#f4f4f6` | Main text                                     | 17.9:1 on canvas   |
 | `fg-muted`     | `#a8a8b4` | Secondary text                                | 8.3:1 on canvas    |
-| `fg-subtle`    | `#8b8b98` | Hints, timestamps                             | 5.8:1 on canvas    |
+| `fg-subtle`    | `#9696a3` | Hints, timestamps                             | 6.7:1 on canvas    |
 | `accent`       | `#6d4aff` | **Primary action only** (Play, Sign in, Save) | 5.2:1 (white text) |
 | `accent-hover` | `#5b3ae8` | Accent hover state (darker keeps contrast)    | 6.5:1 (white text) |
+| `accent-fg`    | `#ffffff` | Text placed on top of `accent`                | 5.2:1 on accent    |
 | `accent-text`  | `#a78bfa` | Accent used as text (links, logo)             | 7.2:1 on canvas    |
-| `danger`       | `#f87171` | Errors, destructive actions                   | 7.1:1 on canvas    |
+| `danger`       | `#f87171` | Error text and icons                          | 7.1:1 on canvas    |
+| `danger-solid` | `#b91c1c` | Destructive buttons (white text)              | 7.0:1 (white text) |
 | `success`      | `#4ade80` | Confirmations                                 | 11.3:1 on canvas   |
 | `warning`      | `#fbbf24` | Warnings                                      | 11.8:1 on canvas   |
 
