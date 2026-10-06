@@ -12,12 +12,47 @@
     <meta name="theme-color" content="#0b0b10" />
     <meta name="description" content="Viora — watch, share and discover videos." />
     <title>Viora</title>
+    <!-- Prompt 101 — THEME BEFORE FIRST PAINT.
+         This runs synchronously in <head>, so the browser has the right colours before it
+         paints anything. Doing it in React instead would paint dark, then repaint light:
+         the "theme flash". Deliberately plain ES5 with no imports — nothing has loaded yet.
+         Mirrors resolveTheme() in src/features/theme/theme.ts; keep the two in step. -->
+    <script>
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('streammini.theme')
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark'
+          var bg = theme === 'light' ? '#f4f4f8' : '#0b0b10'
+          var root = document.documentElement
+          root.setAttribute('data-theme', theme)
+          root.style.background = bg
+          root.style.colorScheme = theme
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', bg)
+        } catch (e) {
+          /* storage blocked — the dark default already on <html> stands */
+        }
+      })()
+    </script>
+
+    <!-- The loading "V" is plain HTML, so it cannot use our CSS tokens. Give it a colour per
+         theme here: #a78bfa is only ~1.9:1 on a light background. -->
+    <style>
+      #boot { color: #a78bfa; }
+      [data-theme='light'] #boot { color: #5331d9; }
+    </style>
   </head>
-  <body style="margin: 0; background: #0b0b10">
+  <body style="margin: 0">
     <div id="root">
       <!-- Shown only until the app starts (React replaces everything inside #root). Plain HTML
            and inline styles, because nothing else has loaded yet. -->
       <div
+        id="boot"
         role="status"
         aria-label="Loading Viora"
         style="
@@ -27,7 +62,6 @@
           font:
             800 3.5rem/1 system-ui,
             sans-serif;
-          color: #a78bfa;
         "
       >
         V

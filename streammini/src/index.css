@@ -75,6 +75,41 @@
   }
 }
 
+/* ============================================================================
+   Prompt 101 — LIGHT THEME.
+   @theme above is the dark default. Tailwind emits those as CSS variables on
+   :root and every utility reads them with var(), so overriding the SAME
+   variables here re-themes the whole app — no component changes at all. That
+   is the payoff for having used token names instead of raw hex everywhere.
+
+   Note the scale inverts: in dark, raised surfaces get LIGHTER; in light, white
+   is already the ceiling, so raised/hover surfaces get slightly DARKER.
+   Every pairing below was checked against WCAG AA — see the contrast audit.
+   ========================================================================== */
+[data-theme='light'] {
+  /* Tells the browser to use light scrollbars, form controls and caret. */
+  color-scheme: light;
+
+  --color-canvas: #f4f4f8; /* page background */
+  --color-surface: #ffffff; /* cards, panels, inputs */
+  --color-elevated: #e9e9f1; /* menus, modals, hover states */
+  --color-line: #dcdce6; /* decorative borders and dividers */
+  --color-line-strong: #76768c; /* control borders — needs 3:1 (WCAG 1.4.11) */
+
+  --color-fg: #14141c; /* main text */
+  --color-fg-muted: #4b4b5a; /* secondary text */
+  --color-fg-subtle: #5f5f70; /* hints, timestamps */
+
+  /* The accent is unchanged as a BACKGROUND (white text on it still passes), but
+     as TEXT it must darken: #a78bfa on white is only ~1.9:1. */
+  --color-accent-text: #5331d9;
+
+  /* Status colours flip too — the dark-theme versions are far too pale on white. */
+  --color-danger: #b4232e; /* error text and icons */
+  --color-success: #15713a; /* darker than dark-theme green: #15803d is only 4.15:1 on elevated */
+  --color-warning: #8a5300;
+}
+
 /* Base styles: dark everywhere — including the full-screen player and while the app loads. */
 @layer base {
   html,

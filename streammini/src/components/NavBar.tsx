@@ -4,6 +4,7 @@ import type { User } from '../lib/types'
 import { Avatar } from './Avatar'
 import { buttonStyles } from './buttonStyles'
 import { DropdownMenu, type MenuItem } from './DropdownMenu'
+import { ThemeToggle } from './ThemeToggle'
 import {
   ClockIcon,
   HistoryIcon,
@@ -53,6 +54,9 @@ export function NavBar({
           >
             <SearchIcon />
           </Link>
+
+          {/* Prompt 101 — outside the signed-in check: browsing is public, and so is this. */}
+          <ThemeToggle />
 
           {sessionChecking ? (
             // Same size as the avatar button, so nothing jumps when the real one appears.
