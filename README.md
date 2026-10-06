@@ -32,3 +32,11 @@ All Watch Later endpoints require an `Authorization: Bearer <token>` header.
 ## Public Video Catalog
 
 `GET /api/videos` is public and returns catalog details and thumbnails for all videos. Playback details at `GET /api/videos/:id` and other features still require authentication.
+
+## Swagger UI and Render
+
+Run the backend locally with `npm run dev`, then open `http://localhost:5000/api-docs`. The OpenAPI document is also available at `http://localhost:5000/api-docs.json`. Swagger UI supports the Bearer JWT security scheme for trying protected endpoints.
+
+To deploy, push this backend branch to GitHub and create a Render Blueprint from the repository using `render.yaml`. Set the prompted environment variables in Render. Use a hosted MongoDB connection string for `MONGO_URI`, allow the Render service to connect in the database network-access settings, and set `RESET_PASSWORD_URL` to the deployed frontend's reset-password page. Render uses `/health` to verify the service and supplies `PORT` automatically.
+
+After deployment, Swagger UI is available at `https://<your-render-service>.onrender.com/api-docs`.
