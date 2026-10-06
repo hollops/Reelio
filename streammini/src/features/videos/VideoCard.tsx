@@ -5,7 +5,6 @@ import { Badge, DurationBadge } from '../../components/Badge'
 import { CheckIcon, ClockIcon, CloseIcon, PlayIcon, VideoIcon } from '../../components/icons'
 import { formatTimeAgo, formatViews, isRecent } from '../../lib/format'
 import type { Video } from '../../lib/types'
-import { countRender } from '../../__renderCount' // TEMP-98
 
 // Prompt 35 — the YouTube-style video card: the most repeated piece of the whole app
 // (home, search, channel pages, Up next…).
@@ -61,11 +60,15 @@ export const VideoCard = memo(function VideoCard({
   onRemove,
   removeFrom = 'Watch later',
 }: VideoCardProps) {
-  countRender('VideoCard') // TEMP-98
   const tabIndex = tabbable ? undefined : -1
   // Clamp to 0–100%, whatever arrives (a player can report slightly past the end).
+  // Number.isFinite also rejects NaN and Infinity: a malformed history row (missing or
+  // zero duration) would otherwise reach the DOM as aria-valuenow="NaN", which is an
+  // invalid ARIA value and a critical accessibility failure.
   const watchedPercent =
-    progress === undefined ? undefined : Math.round(Math.min(1, Math.max(0, progress)) * 100)
+    progress === undefined || !Number.isFinite(progress)
+      ? undefined
+      : Math.round(Math.min(1, Math.max(0, progress)) * 100)
   // Remember WHICH address failed (same idea as Avatar), so a new thumbnail gets a fresh try.
   const [failedThumb, setFailedThumb] = useState<string>()
   const showThumb = video.thumbnailUrl && video.thumbnailUrl !== failedThumb

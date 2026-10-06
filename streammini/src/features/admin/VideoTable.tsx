@@ -4,7 +4,6 @@ import { Badge } from '../../components/Badge'
 import { formatCount, formatDate, formatDuration, formatTimeAgo } from '../../lib/format'
 import type { Video } from '../../lib/types'
 import type { SortDir, SortKey } from './adminListView'
-import { countRender } from '../../__renderCount' // TEMP-98
 
 // Prompt 85 — the admin's table of videos. A REAL <table> (not a grid of boxes), so screen
 // readers can say "row 3, Channel column" and move around it like a spreadsheet.
@@ -29,7 +28,6 @@ export const VideoTable = memo(function VideoTable({
   sort,
   onSort,
 }: VideoTableProps) {
-  countRender('VideoTable') // TEMP-98
   const header = (key: SortKey, label: string, align: 'left' | 'right' = 'left') => (
     <SortHeader column={key} label={label} align={align} sort={sort} onSort={onSort} />
   )

@@ -4,7 +4,6 @@ import { Avatar } from '../../components/Avatar'
 import { Button } from '../../components/Button'
 import { formatDate, formatTimeAgo } from '../../lib/format'
 import type { Comment, User } from '../../lib/types'
-import { countRender } from '../../__renderCount' // TEMP-98
 
 // Prompt 52 — YouTube-style comments: a count, an "Add a comment…" box, and the list (newest
 // first). Posting is handed in as `onAdd`; without it, the list is shown on its own.
@@ -33,7 +32,6 @@ export const CommentsSection = memo(function CommentsSection({
   onAdd,
   now,
 }: CommentsSectionProps) {
-  countRender('CommentsSection') // TEMP-98
   const headingId = useId()
   const location = useLocation()
   const count = comments.length

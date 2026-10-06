@@ -4,7 +4,6 @@ import { Badge, DurationBadge } from '../../components/Badge'
 import { PlayIcon, VideoIcon } from '../../components/icons'
 import { formatTimeAgo, formatViews } from '../../lib/format'
 import type { Video } from '../../lib/types'
-import { countRender } from '../../__renderCount' // TEMP-98
 
 // Prompt 49 — the "Up next" column (replacing the prompt's Netflix episode list, per the team's
 // YouTube decision). Compact cards: small thumbnail left, text right. The whole item is one
@@ -35,7 +34,6 @@ export const UpNextList = memo(function UpNextList({ videos, now }: UpNextListPr
 })
 
 function UpNextItem({ video, isNext, now }: { video: Video; isNext: boolean; now?: number }) {
-  countRender('UpNextItem') // TEMP-98
   const [failedThumb, setFailedThumb] = useState<string>()
   const showThumb = video.thumbnailUrl && video.thumbnailUrl !== failedThumb
 
