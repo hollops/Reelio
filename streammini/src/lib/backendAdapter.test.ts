@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { adaptRequest, adaptResponse } from './backendAdapter'
+import { adaptEnvelope, adaptRequest, adaptResponse } from './backendAdapter'
 
 // The shim between our contract and the Reelio backend. Pure functions, so every
 // mismatch we found by reading their source can be pinned down here — before a
@@ -120,5 +120,88 @@ describe('adaptResponse', () => {
     expect(adaptResponse(null)).toBeNull()
     expect(adaptResponse('ok')).toBe('ok')
     expect(adaptResponse(42)).toBe(42)
+  })
+})
+
+describe('adaptEnvelope', () => {
+  // Every case below is a shape observed on the live Reelio deployment or read from
+  // its controllers — not invented. If the backend standardises later, these fail loudly.
+
+  it('finds the payload under "videos" when there is no success key at all', () => {
+    // GET /videos, verbatim from https://viora-94kb.onrender.com/api/videos
+    const v = adaptEnvelope('/videos', 200, {
+      success: true,
+      message: 'Videos retrieved successfully',
+      videos: [{ _id: 'v1' }],
+    })
+    expect(v.ok).toBe(true)
+    expect(v.payload).toEqual([{ _id: 'v1' }])
+  })
+
+  it('treats a missing success key as success, not failure', () => {
+    // Their browseVideos omits `success` entirely. A strict reader would call it an error.
+    const v = adaptEnvelope('/videos', 200, { message: 'ok', videos: [] })
+    expect(v.ok).toBe(true)
+    expect(v.payload).toEqual([])
+  })
+
+  it('digs through data to the single wrapped value', () => {
+    // PATCH /videos/:id -> { success, message, data: { video } }
+    const v = adaptEnvelope('/videos/v1', 200, {
+      success: true,
+      message: 'Video updated successfully',
+      data: { video: { _id: 'v1', title: 'X' } },
+    })
+    expect(v.payload).toEqual({ _id: 'v1', title: 'X' })
+  })
+
+  it('unwraps data.savedVideos for watch later', () => {
+    const v = adaptEnvelope('/watch-later', 200, {
+      success: true,
+      data: { savedVideos: [{ _id: 'v1' }] },
+    })
+    expect(v.payload).toEqual([{ _id: 'v1' }])
+  })
+
+  it('leaves /history alone, where data IS the payload', () => {
+    const v = adaptEnvelope('/history', 200, {
+      success: true,
+      message: 'ok',
+      data: [{ videoId: 'v1', progress: 10 }],
+    })
+    expect(v.payload).toEqual([{ videoId: 'v1', progress: 10 }])
+  })
+
+  it('keeps an auth reply whole instead of unwrapping it', () => {
+    // POST /auth/loginuser -> { message, token }. The caller reads res.token and res.user,
+    // so this must stay an OBJECT. Unwrapping the single key would hand back a bare string.
+    const v = adaptEnvelope('/auth/login', 200, { message: 'Login successful', token: 'jwt.abc' })
+    expect(v.payload).toEqual({ token: 'jwt.abc' })
+  })
+
+  it('keeps a register reply whole too', () => {
+    const v = adaptEnvelope('/auth/register', 201, {
+      message: 'User created successfully',
+      user: { _id: 'u1', name: 'Ada' },
+    })
+    expect(v.payload).toEqual({ user: { _id: 'u1', name: 'Ada' } })
+  })
+
+  it('reports an explicit success:false as a failure, even on a 200', () => {
+    const v = adaptEnvelope('/videos', 200, { success: false, message: 'Nope' })
+    expect(v.ok).toBe(false)
+    expect(v.message).toBe('Nope')
+  })
+
+  it('reports any non-2xx as a failure and keeps the server’s words', () => {
+    const v = adaptEnvelope('/auth/login', 401, { message: 'Invalid credentials' })
+    expect(v.ok).toBe(false)
+    expect(v.message).toBe('Invalid credentials')
+  })
+
+  it('returns nothing for a delete that only confirms itself', () => {
+    const v = adaptEnvelope('/videos/v1', 200, { success: true, message: 'Video deleted successfully' })
+    expect(v.ok).toBe(true)
+    expect(v.payload).toBeUndefined()
   })
 })

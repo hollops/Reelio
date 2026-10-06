@@ -125,3 +125,66 @@ function walk(value: unknown): unknown {
 
   return out
 }
+
+// --- The envelope ------------------------------------------------------------
+
+/**
+ * The Reelio backend answers in five different shapes, because most controllers do
+ * not call its own sendSuccess() helper. Observed on the live deployment:
+ *
+ *   { message, token }                      POST /auth/loginuser
+ *   { message, user }                       POST /auth/createuser
+ *   { message, videos }                     GET  /videos
+ *   { success, message, data: { video } }   PATCH /videos/:id
+ *   { success, data: { savedVideos } }      GET  /watch-later
+ *
+ * …so the payload hides under nine different keys, and `success` is often absent.
+ * Rather than teach every caller those shapes, we find the payload here, once.
+ *
+ * Returns a verdict instead of throwing, so ApiError stays built in one place
+ * (apiClient) and this module has no circular import back into it.
+ */
+export interface EnvelopeVerdict {
+  ok: boolean
+  payload: unknown
+  message?: string
+  errors?: Record<string, string>
+}
+
+/** Auth replies are objects the caller reads whole ({ token, user }), never unwrapped. */
+const isAuthPath = (path: string) => path.startsWith('/auth/')
+
+export function adaptEnvelope(path: string, status: number, body: unknown): EnvelopeVerdict {
+  const httpOk = status >= 200 && status < 300
+
+  if (!isObject(body)) {
+    return { ok: httpOk, payload: body }
+  }
+
+  const message = typeof body.message === 'string' ? body.message : undefined
+
+  // An explicit success:false is a failure even on a 200, and a 4xx/5xx always is.
+  // Note the absence of `success` means nothing here: most of their routes omit it.
+  if (body.success === false || !httpOk) {
+    const errors = isObject(body.errors) ? (body.errors as Record<string, string>) : undefined
+    return { ok: false, payload: undefined, message, errors }
+  }
+
+  // Strip the envelope's own words; whatever remains is the payload.
+  const { success: _success, message: _message, ...rest } = body
+  let payload: unknown = 'data' in rest ? rest.data : rest
+
+  if (!isAuthPath(path) && isObject(payload)) {
+    // One remaining key holding an array or object is a wrapper: { videos: [...] },
+    // { video: {...} }, { savedVideos: [...] }. Unwrap it to what the caller wants.
+    // A single key holding a STRING (like { token }) is the payload itself, not a wrapper.
+    const keys = Object.keys(payload)
+    const only = keys.length === 1 ? (payload as Record<string, unknown>)[keys[0]!] : undefined
+    if (only !== undefined && (Array.isArray(only) || isObject(only))) payload = only
+  }
+
+  // { success, message } alone (a delete) leaves nothing — that is a valid empty answer.
+  if (isObject(payload) && Object.keys(payload).length === 0) payload = undefined
+
+  return { ok: true, payload, message }
+}

@@ -5,7 +5,7 @@
 // This file unwraps it, so components receive plain `data` on success and an ApiError on failure —
 // whether the answer came from the real server or the in-browser mock.
 
-import { adaptRequest, adaptResponse } from './backendAdapter'
+import { adaptEnvelope, adaptRequest, adaptResponse } from './backendAdapter'
 import type { ApiEnvelope } from './types'
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '')
@@ -186,8 +186,15 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown): Pro
     // ways (a few path spellings, Mongo's _id, a couple of fields it does not store yet).
     // backendAdapter translates both directions so no component ever learns about it.
     const real = adaptRequest(method, path)
-    const answer = unwrap<unknown>(await networkTransport(real.method as HttpMethod, real.path, body))
-    return adaptResponse<T>(answer)
+    const raw = await networkTransport(real.method as HttpMethod, real.path, body)
+    // Their envelope varies per route, so adaptEnvelope finds the payload rather than
+    // assuming `data`. It returns a verdict instead of throwing, so ApiError is still
+    // built here — one place where every failure becomes the shape the UI knows.
+    const env = adaptEnvelope(path, raw.status, raw.body)
+    if (!env.ok) {
+      throw new ApiError(raw.status, env.message || defaultMessage(raw.status), env.errors ?? {})
+    }
+    return adaptResponse<T>(env.payload)
   } catch (err) {
     // A 401 while we HAD a token means the session died (expired, revoked…).
     // A 401 without one is just a wrong password, which the login form handles itself.
