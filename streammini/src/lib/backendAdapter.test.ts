@@ -205,3 +205,70 @@ describe('adaptEnvelope', () => {
     expect(v.payload).toBeUndefined()
   })
 })
+
+describe('adaptEnvelope against the FIXED backend', () => {
+  // These are the shapes the backend-fixes branch now returns. They prove the two sides
+  // agree, and they fail if either drifts.
+
+  it('hands login straight through as { token, user }', () => {
+    const v = adaptEnvelope('/auth/login', 200, {
+      success: true,
+      message: 'Login successful',
+      data: { token: 'jwt.abc', user: { _id: 'u1', name: 'Ada', role: 'user' } },
+    })
+    expect(v.ok).toBe(true)
+    // The caller reads res.token and res.user, so both must survive as one object.
+    expect(v.payload).toEqual({ token: 'jwt.abc', user: { _id: 'u1', name: 'Ada', role: 'user' } })
+  })
+
+  it('does the same for register, which now signs the user in', () => {
+    const v = adaptEnvelope('/auth/register', 201, {
+      success: true,
+      message: 'User created successfully',
+      data: { token: 'jwt.new', user: { _id: 'u2', name: 'Mike' } },
+    })
+    expect(v.payload).toHaveProperty('token', 'jwt.new')
+    expect(v.payload).toHaveProperty('user')
+  })
+
+  it('returns the user itself from /auth/me, not a wrapper around it', () => {
+    // The session restore calls api.get<User>('/auth/me') and expects a User, so the
+    // backend sends the user AS data rather than as data.user.
+    const v = adaptEnvelope('/auth/me', 200, {
+      success: true,
+      message: 'User retrieved successfully',
+      data: { _id: 'u1', name: 'Ada', email: 'ada@example.com', role: 'user' },
+    })
+    expect(v.payload).toEqual({ _id: 'u1', name: 'Ada', email: 'ada@example.com', role: 'user' })
+  })
+
+  it('maps that user through adaptResponse into our shape', () => {
+    const user = adaptResponse<{ id: string; name: string }>({
+      _id: 'u1',
+      name: 'Ada',
+      email: 'ada@example.com',
+      role: 'user',
+      __v: 0,
+    })
+    expect(user.id).toBe('u1')
+    expect(user).not.toHaveProperty('_id')
+    expect(user).not.toHaveProperty('__v')
+  })
+
+  it('no longer needs to invent category or views once the backend sends them', () => {
+    const warn = vi.mocked(console.warn)
+    const before = warn.mock.calls.length
+    const out = adaptResponse<{ category: string; views: number; likes: number }>({
+      _id: 'v1',
+      title: 'Lagos Beats',
+      videoUrl: '/v.mp4',
+      category: 'Music',
+      views: 184000,
+      likes: 9300,
+    })
+    expect(out.category).toBe('Music')
+    expect(out.views).toBe(184000)
+    // Silence here is the signal that the shim can eventually be deleted.
+    expect(warn.mock.calls.length).toBe(before)
+  })
+})
