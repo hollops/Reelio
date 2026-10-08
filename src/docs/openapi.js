@@ -52,6 +52,7 @@ const openApi = {
 		{ name: 'History' },
 		{ name: 'Watch Later' },
 		{ name: 'Admin' },
+		{ name: 'Users' },
 	],
 	paths: {
 		'/auth/createuser': {
@@ -68,6 +69,15 @@ const openApi = {
 				summary: 'Log in and receive a JWT',
 				requestBody: jsonRequest('LoginRequest'),
 				responses: { ...responses('Login successful.'), '401': jsonResponse('Email or password is invalid.') },
+			},
+		},
+		'/auth/me': {
+			get: {
+				tags: ['Auth'],
+				summary: 'Who the current token belongs to',
+				description: 'Read fresh from the database, so a changed name or role wins over the token’s own copy.',
+				security: [{ BearerAuth: [] }],
+				responses: { ...responses('User retrieved successfully.'), '404': jsonResponse('User not found.') },
 			},
 		},
 		'/auth/forgot-password': {
@@ -122,8 +132,7 @@ const openApi = {
 			get: {
 				tags: ['Videos'],
 				summary: 'Get video details for playback',
-				description: 'Requires authentication and returns the video playback URL.',
-				security: [{ BearerAuth: [] }],
+				description: 'Public. Returns the video with its comments. A token is optional: send one and the response also says whether you have liked it (likedByMe).',
 				responses: { ...responses('Video details retrieved.'), '404': jsonResponse('Video not found.') },
 			},
 			patch: {
@@ -140,6 +149,63 @@ const openApi = {
 				description: 'The uploader or an admin can delete the video.',
 				security: [{ BearerAuth: [] }],
 				responses: { ...responses('Video deleted successfully.'), '403': jsonResponse('You do not have permission to delete this video.'), '404': jsonResponse('Video not found.') },
+			},
+		},
+		'/videos/{id}/comments': {
+			parameters: [videoIdParameter],
+			get: {
+				tags: ['Videos'],
+				summary: 'List a video’s comments, newest first',
+				description: 'Public. The author name is read from the user at display time, so renames apply to old comments.',
+				responses: { ...responses('Comments retrieved successfully.'), '404': jsonResponse('Video not found.') },
+			},
+			post: {
+				tags: ['Videos'],
+				summary: 'Add a comment',
+				security: [{ BearerAuth: [] }],
+				requestBody: jsonRequest('AddCommentRequest'),
+				responses: { ...responses('Comment added successfully.', '201'), '404': jsonResponse('Video not found.') },
+			},
+		},
+		'/videos/{id}/like': {
+			parameters: [videoIdParameter],
+			post: {
+				tags: ['Videos'],
+				summary: 'Like a video',
+				description: 'Not a toggle: liking twice leaves it liked once. Returns the new count and likedByMe.',
+				security: [{ BearerAuth: [] }],
+				responses: { ...responses('Video liked.'), '404': jsonResponse('Video not found.') },
+			},
+			delete: {
+				tags: ['Videos'],
+				summary: 'Remove a like',
+				description: 'Removing a like that was never there is a no-op, not an error.',
+				security: [{ BearerAuth: [] }],
+				responses: { ...responses('Like removed.'), '404': jsonResponse('Video not found.') },
+			},
+		},
+		'/users/me': {
+			put: {
+				tags: ['Users'],
+				summary: 'Update your own profile',
+				description: 'multipart/form-data, because JSON cannot carry a file. Every field is optional: send only what changed. There is no :id — you may only edit yourself.',
+				security: [{ BearerAuth: [] }],
+				requestBody: {
+					required: true,
+					content: {
+						'multipart/form-data': {
+							schema: {
+								type: 'object',
+								properties: {
+									name: { type: 'string', maxLength: 50, example: 'Ada Obi' },
+									avatar: { type: 'string', format: 'binary', description: 'JPG, PNG or WebP, 2MB maximum.' },
+									removeAvatar: { type: 'string', enum: ['true'], description: 'Send to delete the current photo.' },
+								},
+							},
+						},
+					},
+				},
+				responses: { ...responses('Profile updated successfully.'), '404': jsonResponse('User not found.') },
 			},
 		},
 		'/history': {
@@ -277,6 +343,7 @@ const openApi = {
 					title: { type: 'string' },
 					description: { type: 'string' },
 					duration: { type: 'number', minimum: 0 },
+					category: { type: 'string', enum: ['Music', 'Gaming', 'Education', 'Comedy', 'Tech', 'Sports', 'Food', 'Travel'], description: 'Defaults to Education. The home page builds one row per category.' },
 					video: { type: 'string', format: 'binary', description: 'Video file, maximum 500 MB.' },
 					thumbnail: { type: 'string', format: 'binary', description: 'Optional image thumbnail.' },
 				},
@@ -297,6 +364,13 @@ const openApi = {
 					videoId: { type: 'string', example: '507f1f77bcf86cd799439011' },
 					progress: { type: 'number', minimum: 0, example: 42 },
 					duration: { type: 'number', minimum: 0, example: 120 },
+				},
+			},
+			AddCommentRequest: {
+				type: 'object',
+				required: ['text'],
+				properties: {
+					text: { type: 'string', maxLength: 500, example: 'Great set — what time was this recorded?' },
 				},
 			},
 			WatchLaterRequest: {

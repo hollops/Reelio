@@ -1,4 +1,6 @@
 const Video = require('../models/Video');
+const Comment = require('../models/Comment');
+const Like = require('../models/Like');
 const cloudinary = require('../config/cloudinary');
 const mongoose = require('mongoose');
 
@@ -79,6 +81,7 @@ const uploadVideo = async ({ body, files, userId }) => {
 			thumbnailUrl: thumbnailAsset?.secure_url || '',
 			thumbnailPublicId: thumbnailAsset?.public_id || '',
 			duration,
+			...(body.category ? { category: body.category } : {}),
 			uploadedBy: userId,
 		});
 		return video;
@@ -107,8 +110,13 @@ const getVideoById = async (videoId) => {
 		throw error;
 	}
 
-	const video = await Video.findById(videoId)
-		.populate('uploadedBy', 'name email role');
+	// $inc is atomic in the database, so two people opening the same video at the same
+	// moment both count. Reading the number, adding one and saving it would lose one of them.
+	const video = await Video.findByIdAndUpdate(
+		videoId,
+		{ $inc: { views: 1 } },
+		{ new: true },
+	).populate('uploadedBy', 'name email role');
 	if (!video) {
 		const error = new Error('Video not found');
 		error.statusCode = 404;
@@ -158,6 +166,11 @@ const updateVideo = async (videoId, updates, actor) => {
 	updates = updates || {};
 	let hasUpdates = false;
 
+	if (Object.prototype.hasOwnProperty.call(updates, 'category')) {
+		video.category = updates.category;
+		hasUpdates = true;
+	}
+
 	for (const field of ['title', 'description']) {
 		if (Object.prototype.hasOwnProperty.call(updates, field)) {
 			if (typeof updates[field] !== 'string' || !updates[field].trim()) {
@@ -193,6 +206,14 @@ const updateVideo = async (videoId, updates, actor) => {
 const deleteVideo = async (videoId, actor) => {
 	const video = await findManageableVideo(videoId, actor);
 	await video.deleteOne();
+
+	// Comments and likes point at a video that no longer exists. Left behind they are
+	// invisible rows that still count: a deleted video's likes would keep inflating any
+	// future total, and its comments would resurface if an id were ever reused.
+	await Promise.all([
+		Comment.deleteMany({ video: videoId }),
+		Like.deleteMany({ video: videoId }),
+	]).catch((error) => console.error('Failed to clean up comments/likes:', error.message));
 
 	const cleanup = [
 		cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' }),
