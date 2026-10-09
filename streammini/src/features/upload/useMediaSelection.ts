@@ -44,9 +44,14 @@ export function useMediaSelection() {
       const frame = await thumbnailFromVideo(file)
       if (mine === ticket.current) setAutoThumb(frame)
     } catch {
-      // No frame (unusual codec)? Fine — the server's placeholder is used.
+      // No frame (unusual codec, or the seek timed out)? Fine — the upload still goes
+      // ahead and the server falls back to a placeholder. A missing thumbnail must never
+      // stop someone publishing a video.
+    } finally {
+      // finally, NOT a line after the try: an unexpected throw here used to leave the form
+      // stuck on "Preparing your video…" with no error and no way forward.
+      if (mine === ticket.current) setPreparing(false)
     }
-    if (mine === ticket.current) setPreparing(false)
   }
 
   function chooseThumbnail(file: File) {

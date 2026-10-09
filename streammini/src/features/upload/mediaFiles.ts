@@ -32,20 +32,44 @@ export function checkThumbnailFile(file: File): string | undefined {
  * what YouTube does when you don't pick one. A hidden <video> jumps to that moment and a
  * canvas "photographs" it into a JPEG file.
  */
-export function thumbnailFromVideo(file: File, width = 640): Promise<File> {
+export function thumbnailFromVideo(file: File, width = 640, timeoutMs = 10_000): Promise<File> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const video = document.createElement('video')
+    let settled = false
     const cleanUp = () => {
+      clearTimeout(timer)
       URL.revokeObjectURL(url)
       video.removeAttribute('src')
     }
+    /**
+     * A TIMEOUT, which this function went without for too long.
+     *
+     * It waits for onseeked. Some codecs load their metadata happily and then never
+     * complete a seek, so that event simply never arrives — no error, no end. The promise
+     * then never settles and whatever awaits it waits forever. readVideoDuration has
+     * always had this guard; its sibling did not, and the upload form hung as a result.
+     *
+     * Any promise that resolves from an EVENT needs a timeout: an event that does not
+     * fire raises nothing to catch.
+     */
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      cleanUp()
+      reject(new Error('Timed out making a thumbnail from the video.'))
+    }, timeoutMs)
+
     video.muted = true
-    video.preload = 'auto'
+    // 'metadata' rather than 'auto': we need one frame, not the whole file. 'auto' pulls
+    // a 200MB upload into memory before anything can happen.
+    video.preload = 'metadata'
     video.onloadedmetadata = () => {
       video.currentTime = Math.min(1, (video.duration || 2) / 2)
     }
     video.onseeked = () => {
+      if (settled) return
+      settled = true
       const scale = width / (video.videoWidth || width)
       const canvas = document.createElement('canvas')
       canvas.width = width
@@ -62,6 +86,8 @@ export function thumbnailFromVideo(file: File, width = 640): Promise<File> {
       )
     }
     video.onerror = () => {
+      if (settled) return
+      settled = true
       cleanUp()
       reject(new Error('Could not read the video.'))
     }
