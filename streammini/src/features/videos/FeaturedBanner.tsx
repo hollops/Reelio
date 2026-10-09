@@ -49,17 +49,28 @@ export function FeaturedBanner({
         alt=""
         fetchPriority="high"
         decoding="async"
-        className="aspect-video w-full bg-elevated object-cover sm:absolute sm:inset-0 sm:-z-20 sm:aspect-auto sm:size-full"
+        className="aspect-video w-full bg-elevated object-cover sm:absolute sm:inset-0 sm:-z-20 sm:aspect-auto sm:size-full motion-safe:sm:animate-hero-drift"
       />
-      {/* The fade that keeps the text readable over the picture — only needed when the text
-          actually sits ON the picture (sm and up). */}
+{/* The fade that keeps the text readable over the picture — only needed when the text
+          actually sits ON the picture (sm and up).
+
+          Deliberately BLACK rather than the canvas token. Canvas is near-white in the light
+          theme, so the "fade" bleached the photograph instead of darkening it, and the hero
+          looked washed out. Every streaming service keeps its hero dark in both themes for
+          exactly this reason: one scrim that always works, whatever the photograph is. */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10 hidden bg-linear-to-r from-canvas from-30% via-canvas/80 to-transparent sm:block"
+        className="absolute inset-0 -z-10 hidden bg-linear-to-r from-black/90 from-15% via-black/70 via-55% to-black/25 sm:block"
+      />
+      {/* A second, vertical pass. A single left-to-right fade leaves the lower edge bright
+          behind the buttons on a photo with a light foreground. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 hidden bg-linear-to-t from-black/60 to-transparent to-50% sm:block"
       />
 
       <div className="w-full max-w-2xl space-y-4 p-5 sm:p-10">
-        <p className="flex items-center gap-2 text-caption font-semibold tracking-wider text-accent-text uppercase">
+        <p className="flex items-center gap-2 text-caption font-semibold tracking-wider text-accent-text uppercase sm:text-[color:var(--color-accent-text)]">
           Featured
           <span aria-hidden="true" className="text-fg-subtle">
             ·
@@ -67,11 +78,13 @@ export function FeaturedBanner({
           <Badge className="tracking-normal normal-case">{video.category}</Badge>
         </p>
 
-        <h2 className="text-heading font-bold text-balance sm:text-hero">{video.title}</h2>
+        <h2 className="text-heading font-bold text-balance text-fg drop-shadow-sm sm:text-hero sm:text-white">
+          {video.title}
+        </h2>
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-fg-muted">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-fg-muted sm:text-white/75">
           <Avatar name={video.uploader.name} src={video.uploader.avatarUrl} size="xs" decorative />
-          <span className="font-medium text-fg">{video.uploader.name}</span>
+          <span className="font-medium text-fg sm:text-white">{video.uploader.name}</span>
           <span aria-hidden="true">·</span>
           <span>{formatViews(video.views)}</span>
           <span aria-hidden="true">·</span>
@@ -81,7 +94,7 @@ export function FeaturedBanner({
         </div>
 
         {video.description && (
-          <p className="line-clamp-3 max-w-xl text-fg-muted">{video.description}</p>
+          <p className="line-clamp-3 max-w-xl text-fg-muted sm:text-white/85">{video.description}</p>
         )}
 
         {/* Phones: two full-width buttons, one above the other (deliberate, not accidental

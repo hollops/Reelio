@@ -63,6 +63,20 @@
     }
   }
 
+  /* The featured banner drifts very slowly, so the top of Home is never quite static.
+     40 seconds and a 6% zoom: slow enough that nobody watches it move, present enough
+     that the page feels alive. Always behind motion-safe: — a slow pan is exactly the
+     kind of movement that troubles people with vestibular sensitivity. */
+  --animate-hero-drift: hero-drift 40s ease-in-out infinite alternate;
+  @keyframes hero-drift {
+    from {
+      transform: scale(1.06) translate3d(-1.5%, -1%, 0);
+    }
+    to {
+      transform: scale(1.06) translate3d(1.5%, 1%, 0);
+    }
+  }
+
   /* The Viora "V": three full turns over 4 seconds — slow start, fast middle, gentle stop. */
   --animate-logo-spin: logo-spin 4s ease-in-out;
   @keyframes logo-spin {
