@@ -272,3 +272,27 @@ describe('adaptEnvelope against the FIXED backend', () => {
     expect(warn.mock.calls.length).toBe(before)
   })
 })
+
+describe('history rows', () => {
+  it('lifts videoId out of the nested video', () => {
+    // The backend stores the relationship as a populated `video`; our types also want a
+    // flat videoId, because the History page removes by it and React keys on it.
+    const entry = adaptResponse<{ videoId: string; video: { id: string } }>({
+      _id: 'h1',
+      video: { _id: 'v1', title: 'X', videoUrl: '/v.mp4' },
+      progress: 42,
+      duration: 120,
+      updatedAt: '2026-10-09T00:00:00.000Z',
+    })
+    expect(entry.video.id).toBe('v1')
+    expect(entry.videoId).toBe('v1')
+  })
+
+  it('leaves an existing videoId alone', () => {
+    const entry = adaptResponse<{ videoId: string }>({
+      videoId: 'already-here',
+      video: { _id: 'v9', title: 'Y', videoUrl: '/w.mp4' },
+    })
+    expect(entry.videoId).toBe('already-here')
+  })
+})

@@ -102,6 +102,14 @@ function walk(value: unknown): unknown {
     out[key] = walk(raw)
   }
 
+  // A history or watch-later row carries its video as a nested object, but our types also
+  // expect a flat videoId — the History page removes by it and React keys on it. Mongo gives
+  // us the relationship; the id has to be lifted out of it.
+  if (isObject(out.video) && out.videoId === undefined) {
+    const nested = out.video as Record<string, unknown>
+    if (nested.id !== undefined) out.videoId = nested.id
+  }
+
   // Fill the fields the backend's Video model does not have yet, so the UI renders
   // rather than crashing on undefined. Each one warns once in development.
   if (looksLikeVideo(out)) {
