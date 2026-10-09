@@ -40,6 +40,10 @@ export function buildHomeFeed(
   // the mock happens to send newest-first, but a real database returns records in whatever order
   // it likes unless told otherwise. (Copy first — never re-order the caller's array.)
   const continueWatching = [...history]
+    // A video deleted after it was watched can leave a history row pointing at nothing, which
+    // arrives here as `video: null`. The type says that cannot happen; the database disagrees.
+    // Drop those first — one null reaching a VideoCard takes the whole Home page down.
+    .filter((entry) => entry.video)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .filter((entry) => entry.duration > 0 && entry.progress >= CONTINUE_MIN_SECONDS)
     .map((entry) => ({ video: entry.video, progress: entry.progress / entry.duration }))

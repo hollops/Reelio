@@ -22,7 +22,13 @@ export function useWatchHistory() {
     api
       .get<WatchHistoryEntry[]>('/history')
       .then((entries) => {
-        if (!cancelled) setState({ status: 'ready', entries })
+        // A video deleted after it was watched leaves a row pointing at nothing, and the server
+        // populates that as `video: null`. WatchHistoryEntry says `video: Video`, so nothing
+        // downstream checks — the null reaches VideoCard and throws, taking the page with it.
+        // The backend filters these out now; this keeps an older server (or a row written
+        // before that fix) from breaking the page.
+        const usable = entries.filter((entry) => entry.video)
+        if (!cancelled) setState({ status: 'ready', entries: usable })
       })
       .catch((err: unknown) => {
         if (!cancelled) {
