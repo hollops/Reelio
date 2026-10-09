@@ -27,12 +27,23 @@ const Video = require('../src/models/Video');
 // --- the media pool ----------------------------------------------------------
 // Real files with their real lengths, so the duration on a card matches playback.
 const MEDIA = [
-  { key: 'dream', url: 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4', seconds: 653 },
-  { key: 'sintel', url: 'https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4', seconds: 888 },
-  { key: 'bunny', url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', seconds: 10 },
-  { key: 'sintelClip', url: 'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4', seconds: 10 },
-  { key: 'jellyfish', url: 'https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4', seconds: 10 },
+  // Full-length Blender Foundation open movies (CC BY). `weight` is how often a file is
+  // picked relative to the others: the short clips existed for quick autoplay testing, and
+  // with equal weighting they took 60% of the catalogue, so two thirds of every grid read
+  // "0:10". Real catalogues have varied lengths; weighting restores that.
+  { key: 'bunnyFull', url: 'https://archive.org/download/BigBuckBunny_124/Content/big_buck_bunny_720p_surround.mp4', seconds: 596, weight: 4 },
+  { key: 'dream', url: 'https://archive.org/download/ElephantsDream/ed_1024_512kb.mp4', seconds: 653, weight: 4 },
+  { key: 'steel', url: 'https://archive.org/download/Tears-of-Steel/tears_of_steel_720p.mp4', seconds: 734, weight: 4 },
+  { key: 'sintel', url: 'https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4', seconds: 888, weight: 4 },
+  // 10-second clips: still here, still useful for testing "Up next" autoplay without
+  // waiting fifteen minutes — just no longer the majority.
+  { key: 'bunny', url: 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4', seconds: 10, weight: 1 },
+  { key: 'sintelClip', url: 'https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4', seconds: 10, weight: 1 },
+  { key: 'jellyfish', url: 'https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4', seconds: 10, weight: 1 },
 ];
+
+// Expanded once, so picking is a plain index lookup rather than a running total each time.
+const MEDIA_POOL = MEDIA.flatMap((m) => Array.from({ length: m.weight }, () => m));
 
 // Deterministic placeholder images: the same seed always returns the same picture, so a
 // re-seed does not reshuffle every thumbnail.
@@ -186,14 +197,26 @@ const has = (name) => process.argv.includes(`--${name}`);
  * Views and likes should look varied but be the SAME on every re-seed: a catalogue whose
  * numbers change each run makes it impossible to tell a real change from noise.
  */
-function hashed(seed) {
+function hashInt(seed) {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i += 1) {
     h ^= seed.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return Math.abs(h) / 2 ** 31;
+  return h >>> 0; // unsigned, so the modulo below is never negative
 }
+
+/** 0–1, for numbers that only need to look varied (views, likes, dates). */
+const hashed = (seed) => hashInt(seed) / 2 ** 32;
+
+/**
+ * Pick one item deterministically.
+ *
+ * Integer modulo, not Math.floor(random * length): scaling a float then flooring it
+ * clusters badly when the list is short, and a first attempt at this left one of the
+ * four films with zero videos out of a hundred.
+ */
+const pick = (seed, list) => list[hashInt(seed) % list.length];
 
 async function main() {
   const uri = arg('uri', process.env.MONGO_URI || process.env.MONGODB_URI);
@@ -273,7 +296,7 @@ async function main() {
     if (existingTitles.has(title)) continue;
 
     const r = hashed(title);
-    const media = MEDIA[Math.floor(r * MEDIA.length) % MEDIA.length];
+    const media = pick(`${title}-media`, MEDIA_POOL);
     const channel = channels.find((c) => c.categories.includes(category)) ?? channels[0];
 
     docs.push({
