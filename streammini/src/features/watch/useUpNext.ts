@@ -47,8 +47,11 @@ export function useUpNext(id: string | undefined, current: Video | null) {
   const category = current?.category
   const channelId = current?.uploader.id
   const videos = useMemo(
-    () => (current && catalogue ? pickUpNext(current, catalogue) : NO_VIDEOS),
-    // `current` itself isn't listed on purpose: the ranking only reads these three fields of it.
+    () =>
+      // Rebuilt from the three fields, so the memo depends on exactly what the ranking reads.
+      currentId && category && channelId && catalogue
+        ? pickUpNext({ id: currentId, category, uploader: { id: channelId } }, catalogue)
+        : NO_VIDEOS,
     [catalogue, currentId, category, channelId],
   )
 
