@@ -46,7 +46,12 @@ const getUserHistory = async (userId) => {
     .populate('video')
     .sort({ lastWatchedAt: -1 });
 
-  return history;
+  // filter() before returning: a video deleted after it was watched leaves a row pointing at
+  // nothing, and populate() fills that with null. Sent on, a null video reaches the History
+  // page and the Home page's "Continue watching" row as a card with no title and no link,
+  // which reads to the viewer as a broken video. A watched-then-deleted video simply drops
+  // out of history, which is what someone would expect of it.
+  return history.filter((row) => row.video);
 };
 
 const getVideoHistory = async (userId, videoId) => {
@@ -55,7 +60,9 @@ const getVideoHistory = async (userId, videoId) => {
     video: videoId,
   }).populate('video');
 
-  return history;
+  // Same guard as getUserHistory: a row whose video is gone is no history at all. Returning
+  // it would hand the player a resume position for a video it cannot load.
+  return history && history.video ? history : null;
 };
 
 const deleteVideoHistory = async (userId, videoId) => {

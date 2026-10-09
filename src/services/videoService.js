@@ -1,6 +1,8 @@
 const Video = require('../models/Video');
 const Comment = require('../models/Comment');
 const Like = require('../models/Like');
+const WatchHistory = require('../models/WatchHistory');
+const WatchLater = require('../models/WatchLater');
 const cloudinary = require('../config/cloudinary');
 const mongoose = require('mongoose');
 
@@ -210,13 +212,20 @@ const deleteVideo = async (videoId, actor) => {
 	const video = await findManageableVideo(videoId, actor);
 	await video.deleteOne();
 
-	// Comments and likes point at a video that no longer exists. Left behind they are
-	// invisible rows that still count: a deleted video's likes would keep inflating any
-	// future total, and its comments would resurface if an id were ever reused.
+	// Every row that points at this video has to go with it. Left behind they are invisible
+	// rows that still count: a deleted video's likes would keep inflating any future total,
+	// and its comments would resurface if an id were ever reused.
+	//
+	// History and watch-later matter for a second reason. populate() turns a row pointing at
+	// a deleted video into `video: null`, and a null video travelling to the frontend is a
+	// card with no title and no link — "this video could not be found" on a page the viewer
+	// never asked to break. Deleting the rows here stops that at the source.
 	await Promise.all([
 		Comment.deleteMany({ video: videoId }),
 		Like.deleteMany({ video: videoId }),
-	]).catch((error) => console.error('Failed to clean up comments/likes:', error.message));
+		WatchHistory.deleteMany({ video: videoId }),
+		WatchLater.deleteMany({ video: videoId }),
+	]).catch((error) => console.error('Failed to clean up rows for the deleted video:', error.message));
 
 	const cleanup = [
 		cloudinary.uploader.destroy(video.publicId, { resource_type: 'video' }),
