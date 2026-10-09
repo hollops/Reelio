@@ -98,8 +98,11 @@ const getAllVideos = async () => Video.find()
 	.populate('uploadedBy', 'name email role')
 	.sort({ createdAt: -1 });
 
+// The field list is an allowlist, so anything added to the Video model must be added
+// here too or it silently never reaches the client. category, views and likes were added
+// after this query was written, which is exactly how they went missing.
 const browseVideos = async () => Video.find()
-	.select('title description thumbnailUrl duration uploadedBy createdAt')
+	.select('title description thumbnailUrl videoUrl duration category views likes uploadedBy createdAt')
 	.populate('uploadedBy', 'name')
 	.sort({ createdAt: -1 });
 
