@@ -47,11 +47,23 @@ const saveVideo = async (userId, videoId) => {
 const getSavedVideos = async (userId) => {
 	validateIds(userId);
 
-	const savedVideos = await WatchLater.find({ user: userId })
+	const saved = await WatchLater.find({ user: userId })
 		.populate({ path: 'video', populate: { path: 'uploadedBy', select: 'name' } })
 		.sort({ createdAt: -1 });
 
-	return savedVideos.filter((savedVideo) => savedVideo.video);
+	// Return the VIDEOS, not the join rows that point at them.
+	//
+	// This previously returned the WatchLater documents themselves, so each item arrived
+	// as { _id, user, video: {...}, createdAt } — a wrapper whose own _id is the join row's,
+	// not the video's. A client reading .title found nothing and the page looked empty even
+	// though saving had worked.
+	//
+	// The row is how we store the relationship; it is not what anyone asked for. "Give me
+	// my saved videos" should answer with videos.
+	//
+	// filter() first: a video deleted after being saved leaves a row pointing at nothing,
+	// and populate fills that with null.
+	return saved.filter((row) => row.video).map((row) => row.video);
 };
 
 const removeSavedVideo = async (userId, videoId) => {
