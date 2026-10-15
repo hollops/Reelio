@@ -10,6 +10,13 @@ import {
 } from '../../components/icons'
 import { Spinner } from '../../components/Spinner'
 import { formatDuration, formatDurationSpoken } from '../../lib/format'
+import {
+  canFullscreen,
+  enterFullscreen,
+  exitFullscreen,
+  isFullscreen,
+  onFullscreenChange,
+} from './fullscreen'
 import { QualityMenu, type QualityOption } from './QualityMenu'
 
 // Prompt 65 — Viora's own video player: the plain <video> element (no browser controls) with
@@ -232,13 +239,22 @@ export function VideoPlayer({
     return () => clearInterval(timer)
   }, [playing])
 
-  // Fullscreen can also be left with Esc or the browser's own UI, so listen for the change
-  // instead of assuming our button was the only way out.
+  // Fullscreen can also be left with Esc, the browser's own UI, or iOS's native "Done", so
+  // listen for the change instead of assuming our button was the only way out. The listeners
+  // differ per browser and iOS fires its pair on the VIDEO, not the document — see
+  // ./fullscreen.ts.
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === containerRef.current)
-    document.addEventListener('fullscreenchange', onChange)
-    return () => document.removeEventListener('fullscreenchange', onChange)
+    const onChange = () => setFullscreen(isFullscreen(containerRef.current, videoRef.current))
+    return onFullscreenChange(videoRef.current, onChange)
   }, [])
+
+  // Whether the button can work at all. iPhones answer "not yet" until the video has its
+  // metadata, so this is re-checked when the video loads rather than only on mount — and a
+  // button that cannot work is hidden instead of lying.
+  const [fullscreenPossible, setFullscreenPossible] = useState(true)
+  const checkFullscreenSupport = () =>
+    setFullscreenPossible(canFullscreen(containerRef.current, videoRef.current))
+  useEffect(checkFullscreenSupport, [])
 
   // --- Commands: tell the video; its events will update the screen. ---
   const video = () => videoRef.current
@@ -264,8 +280,10 @@ export function VideoPlayer({
     v.muted = value === 0 // dragging to zero = muted; dragging up again = sound back
   }
   function toggleFullscreen() {
-    if (document.fullscreenElement) void document.exitFullscreen()
-    else void containerRef.current?.requestFullscreen()
+    // Ask the page, not our own state: the browser can have taken us out of fullscreen
+    // without telling the button (Esc, a rotate, iOS's "Done").
+    if (isFullscreen(containerRef.current, videoRef.current)) exitFullscreen(videoRef.current)
+    else enterFullscreen(containerRef.current, videoRef.current)
   }
 
   // --- Prompt 66: keyboard shortcuts (YouTube's keys) -----------------------------------
@@ -393,7 +411,7 @@ export function VideoPlayer({
       onKeyDown={wake}
       // In fullscreen, fill the screen instead of keeping the 16:9 box.
       // cursor-none: the mouse pointer hides along with the controls.
-      className={`group/player relative aspect-video w-full bg-black text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text [&:fullscreen]:aspect-auto ${controlsHidden ? 'cursor-none' : ''} ${className}`}
+      className={`group/player relative aspect-video w-full bg-black text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-text [&:fullscreen]:aspect-auto [&:-webkit-full-screen]:aspect-auto ${controlsHidden ? 'cursor-none' : ''} ${className}`}
     >
       <video
         // No `key` here any more: a quality switch (72) must keep the SAME element (and its
@@ -459,6 +477,8 @@ export function VideoPlayer({
         onLoadedMetadata={(e) => {
           const v = e.currentTarget
           setDuration(v.duration)
+          // iOS can only say whether it does fullscreen once it knows the video's size.
+          checkFullscreenSupport()
           // After a quality switch (72): back to the same second, playing if it was.
           const back = resumeAfterSwitch.current
           if (back) {
@@ -675,13 +695,17 @@ export function VideoPlayer({
           <div className="ml-auto flex items-center gap-1">
             {/* Prompt 72: ⚙ quality menu. */}
             <QualityMenu options={options} current={quality} onPick={pickQuality} />
-            <ControlButton
-              label={fullscreen ? 'Exit full screen' : 'Full screen'}
-              shortcut="F"
-              onClick={toggleFullscreen}
-            >
-              {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-            </ControlButton>
+            {/* Hidden only where the browser genuinely cannot do it — a button that does
+                nothing is worse than no button. */}
+            {fullscreenPossible && (
+              <ControlButton
+                label={fullscreen ? 'Exit full screen' : 'Full screen'}
+                shortcut="F"
+                onClick={toggleFullscreen}
+              >
+                {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              </ControlButton>
+            )}
           </div>
         </div>
       </div>
