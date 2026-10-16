@@ -15,7 +15,7 @@ import { Container, PageHeader } from '../components/layout'
 import { useToast } from '../components/toast/toastContext'
 import { useAuth } from '../features/auth/authContext'
 import { checkName } from '../features/auth/validation'
-import { AVATAR_ACCEPT, checkAvatarFile } from '../features/profile/avatarFile'
+import { AVATAR_ACCEPT, checkAvatarFile, prepareAvatar } from '../features/profile/avatarFile'
 import { updateProfile } from '../features/profile/profileApi'
 import { ApiError } from '../lib/apiClient'
 import { formatDate } from '../lib/format'
@@ -74,15 +74,21 @@ function ProfileForm({ user }: { user: User }) {
     setPhoto(next)
   }
 
-  function onPickFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
+    const picked = e.target.files?.[0]
     // Reset the picker, so choosing the SAME file again still counts as a change.
     e.target.value = ''
-    if (!file) return // the user closed the dialog without choosing
+    if (!picked) return // the user closed the dialog without choosing
 
-    const problem = checkAvatarFile(file)
+    const problem = checkAvatarFile(picked)
     setPhotoError(problem)
     if (problem) return
+
+    // Shrink before anything else. A photo off a phone is 3–5MB and the server takes 2MB,
+    // so every ordinary photo used to be refused here. Resized, a 4MB original becomes
+    // ~50KB — far more than an 80px circle needs, and it uploads instantly.
+    const file = await prepareAvatar(picked)
+
     // A temporary address for a file still on the user's computer — an instant preview, no upload.
     replacePhoto({ kind: 'new', file, previewUrl: URL.createObjectURL(file) })
   }
