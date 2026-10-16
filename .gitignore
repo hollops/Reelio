@@ -1,0 +1,6 @@
+# The backend lives here as a git WORKTREE of this same repository, on the
+# `backend-fixes` branch. It is a checkout, not content of the frontend branch —
+# committing it here would duplicate the whole backend inside the frontend.
+#
+# Clone it fresh with:  git worktree add reelio-backend backend-fixes
+/reelio-backend/
