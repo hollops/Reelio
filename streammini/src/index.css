@@ -87,6 +87,81 @@
       rotate: 1080deg;
     }
   }
+
+  /* ---------------------------------------------------------------------------
+     The sign-in backdrop (AuthBackdrop.tsx): a wall of content tiles drifting
+     upward behind the form, two slow spotlight glows, and the Viora V ghosted
+     behind the card.
+
+     Every one of these animates ONLY transform and opacity. Those are the cheap
+     properties: the browser can hand them to the GPU without recalculating
+     where anything sits on the page. Animating width, top or margin instead
+     forces a re-layout on every frame, which is how a background animation ends
+     up making a laptop fan spin.
+
+     All of them are used behind `motion-safe:`, like every animation here.
+     ------------------------------------------------------------------------ */
+
+  /* The wall holds the tile set TWICE and shifts up by exactly half its height,
+     so the end of the loop lines up with the start and the seam never shows.
+     80s: noticed only if you look for it. */
+  --animate-auth-wall: auth-wall 80s linear infinite;
+  @keyframes auth-wall {
+    to {
+      transform: translate3d(0, -50%, 0);
+    }
+  }
+
+  /* Two glows on different durations, so they drift apart instead of pulsing
+     together and looking mechanical. */
+  --animate-auth-glow-a: auth-glow-a 26s ease-in-out infinite alternate;
+  @keyframes auth-glow-a {
+    from {
+      transform: translate3d(-7%, -5%, 0) scale(1);
+    }
+    to {
+      transform: translate3d(7%, 5%, 0) scale(1.14);
+    }
+  }
+
+  --animate-auth-glow-b: auth-glow-b 37s ease-in-out infinite alternate;
+  @keyframes auth-glow-b {
+    from {
+      transform: translate3d(6%, 7%, 0) scale(1.1);
+    }
+    to {
+      transform: translate3d(-6%, -7%, 0) scale(1);
+    }
+  }
+
+  /* A few tiles brighten and dim on staggered delays, which reads as "something
+     is playing in there" without anything actually moving. */
+  --animate-auth-shimmer: auth-shimmer 7s ease-in-out infinite;
+  @keyframes auth-shimmer {
+    0%,
+    100% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.75;
+    }
+  }
+
+  /* The big V breathes very slightly, so the page is never completely still.
+     These opacities assume the V paints OVER the readability wash — it sits
+     last in AuthBackdrop for exactly that reason. Under the wash, even 0.2
+     disappears completely. */
+  --animate-auth-breathe: auth-breathe 14s ease-in-out infinite alternate;
+  @keyframes auth-breathe {
+    from {
+      transform: scale(1);
+      opacity: 0.16;
+    }
+    to {
+      transform: scale(1.05);
+      opacity: 0.24;
+    }
+  }
 }
 
 /* ============================================================================
